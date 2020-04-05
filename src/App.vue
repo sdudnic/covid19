@@ -1,18 +1,14 @@
 <template>
   <v-app>
-    <v-app-bar
-      app
-      color="primary"
-      dark
-    >
+    <v-app-bar app color="amber">
       <div class="d-flex align-center">
         <v-img
           alt="Vuetify Logo"
           class="shrink mr-2"
           contain
-          src="https://cdn.vuetifyjs.com/images/logos/vuetify-logo-dark.png"
+          :src="require('./assets/logo.png')"
           transition="scale-transition"
-          width="40"
+          height="5em"
         />
 
         <v-img
@@ -20,41 +16,45 @@
           class="shrink mt-1 hidden-sm-and-down"
           contain
           min-width="100"
-          src="https://cdn.vuetifyjs.com/images/logos/vuetify-name-dark.png"
+          src="./assets/logo.png"
           width="100"
         />
       </div>
-
+      <v-toolbar-title>COVID-19</v-toolbar-title>
       <v-spacer></v-spacer>
 
-      <v-btn
-        href="https://github.com/vuetifyjs/vuetify/releases/latest"
-        target="_blank"
-        text
-      >
-        <span class="mr-2">Latest Release</span>
+      <!-- <v-btn href="https://github.com/sdudnic/covid19" target="_blank" text>
+        <span class="mr-2">Petition</span>
         <v-icon>mdi-open-in-new</v-icon>
-      </v-btn>
+      </v-btn>-->
     </v-app-bar>
 
     <v-content>
-      <HelloWorld/>
+      <Graphs />
     </v-content>
+    <v-footer absolute app>
+      <v-card-text class="text-right">
+        {{ new Date().getFullYear() }}
+        <a href="https://github.com/sdudnic/covid-19" target="blank">covid-19</a> project by
+        <a href="https://github.com/sdudnic" target="blank">sdudnic</a> & co
+        <v-spacer></v-spacer>        
+      </v-card-text>
+    </v-footer>
   </v-app>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld';
+import Graphs from "./components/Graphs";
 
 export default {
-  name: 'App',
+  name: "App",
 
   components: {
-    HelloWorld,
+    Graphs
   },
 
   data: () => ({
     //
-  }),
+  })
 };
 </script>
