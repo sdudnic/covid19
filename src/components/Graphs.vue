@@ -1,52 +1,69 @@
 <template>
   <v-container>
-    <v-row class="text-center">
-      <v-col cols="4" offset="4">
-        <v-autocomplete v-model="countryCode" :items="countries" item-text="name" item-value="iso3"></v-autocomplete>
-        <small>
-          {{strings.lastData}}
-          <span id="lastApiUpdate">{{last.updateDate | isoDateTime}}</span>
-          (+{{strings.today}})
-        </small>
-      </v-col>
-    </v-row>
-
-    <v-row class="text-center">
-      <v-col cols="4">
-        <span>
-          <label for="confirmed">
-            ⚑ {{strings.chart.confirmed}} ☛
-            {{last.total.confirmed}}
-            (+{{last.new.confirmed}})
-          </label>
-        </span>
-      </v-col>
-      <v-col cols="4">
-        <span>
-          <label for="recovered">
-            ⚑ {{strings.chart.recovered}} ☛
-            {{last.total.recovered}}
-            (+{{last.new.recovered}})
-          </label>
-        </span>
-      </v-col>
-      <v-col cols="4">
-        <span>
-          <label for="deaths">
-            ⚑ {{strings.chart.deaths}} ☛ {{last.total.deaths}}
-            (+{{last.new.deaths}})
-          </label>
-        </span>
+    <v-row>
+      <v-col>
+        <v-row align="center" justify="center">
+          <v-autocomplete
+            dense
+            :label="strings.chart.country"
+            v-model="countryCode"
+            :items="countries"
+            style="max-width: 250px"
+            item-text="name"
+            item-value="iso3"
+            hide-details
+            class="par-5"
+          ></v-autocomplete>
+          <v-text-field
+            :label="strings.chart.daysBack"
+            :value="daysNumber"
+            dense
+            style="max-width: 45px"
+            type="number"
+            hide-details
+            class="pal-5"
+          ></v-text-field>
+        </v-row>
+        <v-row class="ma-0 pa-0" align="center" justify="center">
+          <small>
+            {{strings.lastData}}
+            <span
+              id="lastApiUpdate"
+              class="font-weight-bold"
+            >{{history.updateDate | isoDateTime}}</span>
+            (+{{strings.today}})
+          </small>
+        </v-row>
+        <v-row align="center" justify="center">
+          <v-card
+            v-for="(color, i) in colors"
+            :key="i"
+            outlined
+            dark
+            :color="color"
+            :style="{opacity: (history.new[i]===0? .5 : 1)}"
+            class="ma-5 text-center"
+          >
+            <div class="overline">{{strings.chart[i]}}</div>
+            <div class="pa-1">+ {{history.new[i]}} ({{history.total[i]}})</div>
+          </v-card>
+        </v-row>
       </v-col>
     </v-row>
 
     <v-row class="text-center">
       <v-col cols="12">
-        <GChart type="LineChart" :data="newData" :options="newChartOptions" />
+        <GChart
+          type="LineChart"
+          :settings="{ 'packages':['corechart'], language: language}"
+          :data="newData"
+          :options="newChartOptions"
+        />
       </v-col>
       <v-col cols="12">
         <GChart
           type="LineChart"
+          :settings="{ 'packages':['corechart'], language: language}"
           :data="totalData"
           :options="totalChartOptions"
           @ready="onChartReady"
@@ -64,82 +81,77 @@ export default {
   components: {
     GChart
   },
-  data: () => ({
-    strings: {
-      chart: {},
-      petition: {}
-    },
-    language: "en",
-    loading: true,
-    daysNumber: 14,
-    countryCode: "mda",
-    last: {
-      total: {
-        confirmed: 0,
-        recovered: 0,
-        deaths: 0
-      },
-      new: {
-        confirmed: 0,
-        recovered: 0,
-        deaths: 0
-      },
-      updateDate: new Date()
-    },
-    totalChartOptions: {
-      title: "Total cases",
-      curveType: "function",
-      legend: {
-        position: "none"
-      },
-      // set annotation for -- No Data Copy
-      annotations: {
-        // remove annotation stem and push to middle of chart
-        stem: {
-          color: "transparent",
-          length: 120
+  props: {
+    strings: { type: Object, required: true },
+    language: { type: String, required: true },
+    colors: { type: Object, required: true }
+  },
+  data() {
+    return {
+      daysNumber: 5,
+      countryCode: "mda",
+      history: {
+        total: {
+          confirmed: 0,
+          recovered: 0,
+          deaths: 0
         },
-        textStyle: {
-          color: "red",
-          fontSize: 22
-        }
+        new: {
+          confirmed: 0,
+          recovered: 0,
+          deaths: 0
+        },
+        updateDate: new Date()
       },
-      hAxis: {
-        title: "",
-        format: "dd/MM"
+      totalChartOptions: {
+        title: "Total cases",
+        curveType: "function",
+        legend: {
+          position: "none"
+        },
+        // set annotation for -- No Data Copy
+        annotations: {
+          // remove annotation stem and push to middle of chart
+          stem: {
+            color: "transparent",
+            length: 120
+          },
+          textStyle: {
+            color: "red",
+            fontSize: 22
+          }
+        },
+        explorer: {},
+        hAxis: {
+          title: '',
+          viewWindowMode: 'maximized'
+          //format: 'short'
+        },
+        vAxis: {
+          viewWindow: { min: 0 }
+        },
+        colors: Object.values(this.colors),
+        pointSize: 5,
+        pointShape: "diamond"
       },
-      vAxis: {
-        viewWindow: { min: 0 }
+      newChartOptions: {},
+      totalData: {},
+      newData: {},
+      countries: [],
+      apiUrl: {
+        timeline: "https://covidapi.info/api/v1/country/***",
+        current:
+          "https://services1.arcgis.com/0MSEUqKaxRlEPj5g/arcgis/rest/services/Coronavirus_2019_nCoV_Cases/FeatureServer/2/query?where=UPPER(Country_Region)%20like%20%27%25***%25%27&outFields=Last_Update,Confirmed,Deaths,Recovered,Country_Region&returnGeometry=false&outSR=4326&f=json"
       },
-      colors: ["orange", "green", "red"],
-      pointSize: 5,
-      pointShape: "diamond"
-    },
-    newChartOptions: {},
-    totalData: {},
-    newData: {},
-    countries: [],
-    apiUrl: {
-      timeline: "https://covidapi.info/api/v1/country/***",
-      current:
-        "https://services1.arcgis.com/0MSEUqKaxRlEPj5g/arcgis/rest/services/Coronavirus_2019_nCoV_Cases/FeatureServer/2/query?where=UPPER(Country_Region)%20like%20%27%25***%25%27&outFields=Last_Update,Confirmed,Deaths,Recovered,Country_Region&returnGeometry=false&outSR=4326&f=json"
-    },
-    startDateString: ""
-  }),
+      startDateString: ""
+    };
+  },
   methods: {
     getCountries() {
       var vm = this;
       return fetch("./data/countries.json")
         .then(s => s.json())
         .then(c => (vm.countries = c));
-    },
-    getStrings() {
-      var vm = this;
-      var browserLanguage = navigator.language || navigator.userLanguage;
-      this.language = browserLanguage.slice(0, 2);
-      return fetch("./data/strings.json")
-        .then(s => s.json())
-        .then(st => (vm.strings = st[vm.language]));
     },
     getApiUrl(countryCode, countryName, isTimeline) {
       if (!countryCode) {
@@ -163,11 +175,11 @@ export default {
     filterFromStartDate(e) {
       return e[0] >= this.startDateString;
     },
-    updateFields(updateDate, confirmed, recovered, deaths) {
-      this.last.updateDate = updateDate;
-      this.last.total.confirmed = confirmed;
-      this.last.total.recovered = recovered;
-      this.last.total.deaths = deaths;
+    updateFields(current) {
+      this.history.updateDate = current.date;
+      this.history.total.confirmed = current.confirmed;
+      this.history.total.recovered = current.recovered;
+      this.history.total.deaths = current.deaths;
     },
     onChartReady(chart, google) {
       var vm = this;
@@ -175,18 +187,18 @@ export default {
       vm.newData = new google.visualization.DataTable();
 
       vm.totalData.addColumn("date", "Date");
-      vm.totalData.addColumn("number", "Confirmed");
-      vm.totalData.addColumn("number", "Recovered");
-      vm.totalData.addColumn("number", "Deaths");
+      vm.totalData.addColumn("number", vm.strings.chart.confirmed);
+      vm.totalData.addColumn("number", vm.strings.chart.recovered);
+      vm.totalData.addColumn("number", vm.strings.chart.deaths);
       vm.totalData.addColumn({
         role: "annotation",
         type: "string"
       });
 
       vm.newData.addColumn("date", "Date");
-      vm.newData.addColumn("number", "Confirmed");
-      vm.newData.addColumn("number", "Recovered");
-      vm.newData.addColumn("number", "Deaths");
+      vm.newData.addColumn("number", vm.strings.chart.confirmed);
+      vm.newData.addColumn("number", vm.strings.chart.recovered);
+      vm.newData.addColumn("number", vm.strings.chart.deaths);
       vm.newData.addColumn({
         role: "annotation",
         type: "string"
@@ -201,53 +213,81 @@ export default {
       vm.newChartOptions = JSON.parse(JSON.stringify(vm.totalChartOptions)); // clone
       vm.loadData(vm.countryCode, vm.countryName);
     },
+    cleanTable(dataTable) {
+      if (dataTable.getNumberOfRows) {
+        var rowsNr = dataTable.getNumberOfRows();
+        if (rowsNr) dataTable.removeRows(0, rowsNr);
+      }
+    },
+    addNewDataRow(current, previous, ignored) {
+      var vm = this;
+      vm.history.updateDate = current.date;
+
+      vm.history.total.confirmed = current.confirmed;
+      vm.history.new.confirmed = current.confirmed - previous.confirmed;
+      previous.confirmed = current.confirmed;
+
+      vm.history.total.recovered = current.recovered;
+      vm.history.new.recovered = current.recovered - previous.recovered;
+      previous.recovered = current.recovered;
+
+      vm.history.total.deaths = current.deaths;
+      vm.history.new.deaths = current.deaths - previous.deaths;
+      previous.deaths = current.deaths;
+
+      if (!ignored) {
+        vm.totalData.addRow([
+          current.date,
+          current.confirmed,
+          current.recovered,
+          current.deaths,
+          null
+        ]);
+        vm.newData.addRow([
+          current.date,
+          vm.history.new.confirmed,
+          vm.history.new.recovered,
+          vm.history.new.deaths,
+          null
+        ]);
+      }
+    },
     loadData(countryCode, countryName) {
       var vm = this;
       countryCode = countryCode || vm.countryCode;
       countryName = countryName || vm.countryName;
-      function cleanTable(dataTable) {
-        var rowsNr = dataTable.getNumberOfRows();
-        if (rowsNr > 0) {
-          dataTable.removeRows(0, rowsNr);
-        }
+
+      var now = new Date();
+      var utcNow = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+      );
+      var startDate = utcNow.addDays(-vm.daysNumber - 1);
+      vm.startDateString = startDate.toISOString().slice(0, 10);
+
+      if (vm.totalData.addRow) {
+        vm.totalData.addRow([null, 0, 0, 0, null]);
+        vm.newData.addRow([null, 0, 0, 0, null]);
+
+        vm.cleanTable(vm.totalData);
+        vm.cleanTable(vm.newData);
       }
-      if (vm.totalData.getNumberOfRows) {
-        cleanTable(vm.totalData);
-        cleanTable(vm.newData);
-      }
+
       var timelineApi = vm.getApiUrl(countryCode, countryName, true);
+      var currentApi = vm.getApiUrl(countryCode, countryName, false);
+
       var previous = {
+        date: {},
         confirmed: 0,
         recovered: 0,
         deaths: 0
       };
 
-      function addNewDataRow(date, confirmed, recovered, deaths, ignored) {
-        vm.last.updateDate = date;
-
-        vm.last.total.confirmed = confirmed;
-        vm.last.new.confirmed = confirmed - previous.confirmed;
-        previous.confirmed = confirmed;
-
-        vm.last.total.recovered = recovered;
-        vm.last.new.recovered = recovered - previous.recovered;
-        previous.recovered = recovered;
-
-        vm.last.total.deaths = deaths;
-        vm.last.new.deaths = deaths - previous.deaths;
-        previous.deaths = deaths;
-
-        if (!ignored) {
-          vm.totalData.addRow([date, confirmed, recovered, deaths, null]);
-          vm.newData.addRow([
-            date,
-            vm.last.new.confirmed,
-            vm.last.new.recovered,
-            vm.last.new.deaths,
-            null
-          ]);
-        }
-      }
+      var current = {
+        date: {},
+        confirmed: 0,
+        recovered: 0,
+        deaths: 0
+      };
 
       fetch(timelineApi)
         .then(a => a.json())
@@ -264,38 +304,34 @@ export default {
           } else {
             // we have data
             for (let i = 0; i < results.length; i++) {
-              var myDate = new Date(results[i][0]);
               const item = results[i][1];
+              var myDate = new Date(results[i][0]);
+              current = {
+                date: myDate,
+                confirmed: item.confirmed,
+                recovered: item.recovered,
+                deaths: item.deaths
+              };
               var ignoreAdding = i == 0;
-              addNewDataRow(
-                myDate,
-                item.confirmed,
-                item.recovered,
-                item.deaths,
-                ignoreAdding
-              );
+              vm.addNewDataRow(current, previous, ignoreAdding);
             }
           }
-          var currentApi = vm.getApiUrl(countryCode, countryName, false);
-
+        })
+        .then(() => {
           fetch(currentApi)
             .then(d => d.json())
             .then(data => {
               var item = data.features[0].attributes;
               var myDate = new Date(item.Last_Update);
+              current = {
+                date: myDate,
+                confirmed: item.Confirmed,
+                recovered: item.Recovered,
+                deaths: item.Deaths
+              };
 
-              addNewDataRow(
-                myDate,
-                item.Confirmed,
-                item.Recovered,
-                item.Deaths
-              );
-              vm.updateFields(
-                myDate,
-                item.Confirmed,
-                item.Recovered,
-                item.Deaths
-              );
+              vm.addNewDataRow(current, previous);
+              vm.updateFields(current);
 
               vm.totalChartOptions.title =
                 vm.strings.chart.totalTitle + countryName;
@@ -304,9 +340,11 @@ export default {
             });
         })
         .catch(() => {
-          vm.totalData.addRow([null, 0, 0, 0, "NO DATA"]);
-          vm.newData.addRow([null, 0, 0, 0, "NO DATA"]);
-          vm.updateFields();
+          if (vm.totalData.addRow) {
+            vm.totalData.addRow([null, 0, 0, 0, "NO DATA"]);
+            vm.newData.addRow([null, 0, 0, 0, "NO DATA"]);
+            vm.updateFields();
+          }
         });
     },
     getIsoCodeFromUrl() {
@@ -398,7 +436,8 @@ export default {
     }
   },
   watch: {
-    countryCode: "countryCodeChanged"
+    countryCode: "countryCodeChanged",
+    daysNumber: "loadData"
   },
   beforeMount() {
     Date.prototype.addDays = function(days) {
@@ -406,37 +445,34 @@ export default {
       date.setDate(date.getDate() + days);
       return date;
     };
-    this.getStrings();
     this.getCountries();
   },
   mounted: function() {
     var vm = this;
 
-    // get translations
-    this.getStrings().then(() => {
-      var now = new Date();
-      var utcNow = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-      );
-      var startDate = utcNow.addDays(-vm.daysNumber - 1);
-      vm.startDateString = startDate.toISOString().slice(0, 10);
-      // end define startDate
+    if (vm.totalData && vm.totalData.setColumnLabel) {
+      vm.totalData.setColumnLabel(1, vm.strings.chart.confirmed);
+      vm.totalData.setColumnLabel(2, vm.strings.chart.recovered);
+      vm.totalData.setColumnLabel(3, vm.strings.chart.deaths);
+      vm.newData.setColumnLabel(1, vm.strings.chart.confirmed);
+      vm.newData.setColumnLabel(2, vm.strings.chart.recovered);
+      vm.newData.setColumnLabel(3, vm.strings.chart.deaths);
+    }
 
-      var urlCode = vm.getIsoCodeFromUrl();
-      if (urlCode) {
-        vm.countryCode = urlCode;
-      } else {
-        vm.getIso3CodeFromIp().then(iso3 => {
-          if (iso3) {
-            iso3 = iso3.toLowerCase();
-            vm.countryCode = iso3;
-          } else {
-            // try to throw a countrycode change
-            //vm.countryCode = vm.countryCode;
-          }
-        });
-      }
-    });
+    var urlCode = vm.getIsoCodeFromUrl();
+    if (urlCode) {
+      vm.countryCode = urlCode;
+    } else {
+      vm.getIso3CodeFromIp().then(iso3 => {
+        if (iso3) {
+          iso3 = iso3.toLowerCase();
+          vm.countryCode = iso3;
+        } else {
+          // try to throw a countrycode change
+          //vm.countryCode = vm.countryCode;
+        }
+      });
+    }
   }
 };
 </script>
