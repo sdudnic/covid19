@@ -125,7 +125,6 @@ export default {
         hAxis: {
           title: '',
           viewWindowMode: 'maximized'
-          //format: 'short'
         },
         vAxis: {
           viewWindow: { min: 0 }
