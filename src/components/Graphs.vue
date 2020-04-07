@@ -31,7 +31,7 @@
             <span
               id="lastApiUpdate"
               class="font-weight-bold"
-            >{{history.updateDate | isoDateTime}}</span>
+            >{{cases.updateDate | isoDateTime}}</span>
             (+{{strings.today}})
           </small>
         </v-row>
@@ -40,13 +40,14 @@
             v-for="(color, i) in colors"
             :key="i"
             outlined
-            dark
-            :color="color"
-            :style="{opacity: (history.new[i]===0? .5 : 1)}"
-            class="ma-5 text-center"
+            :style="{opacity: (cases.delta[i]===0? .5 : 1)}"
+            class="ma-1 pa-2 text-center"
           >
-            <div class="overline">{{strings.chart[i]}}</div>
-            <div class="pa-1">+ {{history.new[i]}} ({{history.total[i]}})</div>
+            <div class="overline font-weight-bold" :style="{color:color}">{{strings.chart[i]}}</div>
+            <div :style="{borderTop: 'thin solid rgba(0,0,0,.12)', color:color}">
+              + {{cases.delta[i]}}
+              <small>({{Number(cases.total[i]).toLocaleString()}})</small>
+            </div>
           </v-card>
         </v-row>
       </v-col>
@@ -58,8 +59,8 @@
           id="deltaDataChart"
           type="LineChart"
           :settings="{ 'packages':['corechart'], language: language}"
-          :data="newData"
-          :options="newChartOptions"
+          :data="deltaDataTable"
+          :options="deltaChartOptions"
         />
       </v-card>
       <v-card class="ma-2">
@@ -67,7 +68,7 @@
           id="totalDataChart"
           type="LineChart"
           :settings="{ 'packages':['corechart'], language: language}"
-          :data="totalData"
+          :data="totalDataTable"
           :options="totalChartOptions"
           @ready="onChartReady"
         />
@@ -91,15 +92,16 @@ export default {
   },
   data() {
     return {
-      daysNumber: 5,
-      countryCode: "mda",
-      history: {
+      ready: { totalChart: false, deltaChart: false },
+      daysNumber: 3,
+      countryCode: "",
+      cases: {
         total: {
           confirmed: 0,
           recovered: 0,
           deaths: 0
         },
-        new: {
+        delta: {
           confirmed: 0,
           recovered: 0,
           deaths: 0
@@ -139,9 +141,9 @@ export default {
         pointSize: 5,
         pointShape: "diamond"
       },
-      newChartOptions: {},
-      totalData: {},
-      newData: {},
+      deltaChartOptions: {},
+      totalDataTable: {},
+      deltaDataTable: {},
       countries: [],
       apiUrl: {
         timeline: "https://covidapi.info/api/v1/country/***",
@@ -181,30 +183,30 @@ export default {
       return e[0] >= this.startDateString;
     },
     updateFields(current) {
-      this.history.updateDate = current.date;
-      this.history.total.confirmed = current.confirmed;
-      this.history.total.recovered = current.recovered;
-      this.history.total.deaths = current.deaths;
+      this.cases.updateDate = current.date;
+      this.cases.total.confirmed = current.confirmed;
+      this.cases.total.recovered = current.recovered;
+      this.cases.total.deaths = current.deaths;
     },
     onChartReady(chart, google) {
       var vm = this;
-      vm.totalData = new google.visualization.DataTable();
-      vm.newData = new google.visualization.DataTable();
+      vm.totalDataTable = new google.visualization.DataTable();
+      vm.deltaDataTable = new google.visualization.DataTable();
 
-      vm.totalData.addColumn("date", "Date");
-      vm.totalData.addColumn("number", vm.strings.chart.confirmed);
-      vm.totalData.addColumn("number", vm.strings.chart.recovered);
-      vm.totalData.addColumn("number", vm.strings.chart.deaths);
-      vm.totalData.addColumn({
+      vm.totalDataTable.addColumn("date", "Date");
+      vm.totalDataTable.addColumn("number", vm.strings.chart.confirmed);
+      vm.totalDataTable.addColumn("number", vm.strings.chart.recovered);
+      vm.totalDataTable.addColumn("number", vm.strings.chart.deaths);
+      vm.totalDataTable.addColumn({
         role: "annotation",
         type: "string"
       });
 
-      vm.newData.addColumn("date", "Date");
-      vm.newData.addColumn("number", vm.strings.chart.confirmed);
-      vm.newData.addColumn("number", vm.strings.chart.recovered);
-      vm.newData.addColumn("number", vm.strings.chart.deaths);
-      vm.newData.addColumn({
+      vm.deltaDataTable.addColumn("date", "Date");
+      vm.deltaDataTable.addColumn("number", vm.strings.chart.confirmed);
+      vm.deltaDataTable.addColumn("number", vm.strings.chart.recovered);
+      vm.deltaDataTable.addColumn("number", vm.strings.chart.deaths);
+      vm.deltaDataTable.addColumn({
         role: "annotation",
         type: "string"
       });
@@ -212,10 +214,10 @@ export default {
       var formatter = new google.visualization.DateFormat({
         pattern: "dd/MM/yy hh:mm"
       });
-      formatter.format(vm.totalData, 0);
-      formatter.format(vm.newData, 0);
+      formatter.format(vm.totalDataTable, 0);
+      formatter.format(vm.deltaDataTable, 0);
 
-      vm.newChartOptions = JSON.parse(JSON.stringify(vm.totalChartOptions)); // clone
+      vm.deltaChartOptions = JSON.parse(JSON.stringify(vm.totalChartOptions)); // clone
       vm.loadData(vm.countryCode, vm.countryName);
     },
     cleanTable(dataTable) {
@@ -226,33 +228,33 @@ export default {
     },
     addNewDataRow(current, previous, ignored) {
       var vm = this;
-      vm.history.updateDate = current.date;
+      vm.cases.updateDate = current.date;
 
-      vm.history.total.confirmed = current.confirmed;
-      vm.history.new.confirmed = current.confirmed - previous.confirmed;
+      vm.cases.total.confirmed = current.confirmed;
+      vm.cases.delta.confirmed = current.confirmed - previous.confirmed;
       previous.confirmed = current.confirmed;
 
-      vm.history.total.recovered = current.recovered;
-      vm.history.new.recovered = current.recovered - previous.recovered;
+      vm.cases.total.recovered = current.recovered;
+      vm.cases.delta.recovered = current.recovered - previous.recovered;
       previous.recovered = current.recovered;
 
-      vm.history.total.deaths = current.deaths;
-      vm.history.new.deaths = current.deaths - previous.deaths;
+      vm.cases.total.deaths = current.deaths;
+      vm.cases.delta.deaths = current.deaths - previous.deaths;
       previous.deaths = current.deaths;
 
       if (!ignored) {
-        vm.totalData.addRow([
+        vm.totalDataTable.addRow([
           current.date,
           current.confirmed,
           current.recovered,
           current.deaths,
           null
         ]);
-        vm.newData.addRow([
+        vm.deltaDataTable.addRow([
           current.date,
-          vm.history.new.confirmed,
-          vm.history.new.recovered,
-          vm.history.new.deaths,
+          vm.cases.delta.confirmed,
+          vm.cases.delta.recovered,
+          vm.cases.delta.deaths,
           null
         ]);
       }
@@ -269,12 +271,12 @@ export default {
       var startDate = utcNow.addDays(-vm.daysNumber - 1);
       vm.startDateString = startDate.toISOString().slice(0, 10);
 
-      if (vm.totalData.addRow) {
-        vm.totalData.addRow([null, 0, 0, 0, null]);
-        vm.newData.addRow([null, 0, 0, 0, null]);
+      if (vm.totalDataTable.addRow) {
+        vm.totalDataTable.addRow([null, 0, 0, 0, null]);
+        vm.deltaDataTable.addRow([null, 0, 0, 0, null]);
 
-        vm.cleanTable(vm.totalData);
-        vm.cleanTable(vm.newData);
+        vm.cleanTable(vm.totalDataTable);
+        vm.cleanTable(vm.deltaDataTable);
       }
 
       var timelineApi = vm.getApiUrl(countryCode, countryName, true);
@@ -303,8 +305,8 @@ export default {
 
           if (results.length === 0) {
             // no data
-            vm.totalData.addRow([null, 0, 0, 0, "NO DATA"]);
-            vm.newData.addRow([null, 0, 0, 0, "NO DATA"]);
+            vm.totalDataTable.addRow([null, 0, 0, 0, "NO DATA"]);
+            vm.deltaDataTable.addRow([null, 0, 0, 0, "NO DATA"]);
             vm.updateFields();
           } else {
             // we have data
@@ -340,14 +342,14 @@ export default {
 
               vm.totalChartOptions.title =
                 vm.strings.chart.totalTitle + countryName;
-              vm.newChartOptions.title =
+              vm.deltaChartOptions.title =
                 vm.strings.chart.newTitle + countryName;
             });
         })
         .catch(() => {
-          if (vm.totalData.addRow) {
-            vm.totalData.addRow([null, 0, 0, 0, "NO DATA"]);
-            vm.newData.addRow([null, 0, 0, 0, "NO DATA"]);
+          if (vm.totalDataTable.addRow) {
+            vm.totalDataTable.addRow([null, 0, 0, 0, "NO DATA"]);
+            vm.deltaDataTable.addRow([null, 0, 0, 0, "NO DATA"]);
             vm.updateFields();
           }
         });
@@ -455,13 +457,13 @@ export default {
   mounted: function() {
     var vm = this;
 
-    if (vm.totalData && vm.totalData.setColumnLabel) {
-      vm.totalData.setColumnLabel(1, vm.strings.chart.confirmed);
-      vm.totalData.setColumnLabel(2, vm.strings.chart.recovered);
-      vm.totalData.setColumnLabel(3, vm.strings.chart.deaths);
-      vm.newData.setColumnLabel(1, vm.strings.chart.confirmed);
-      vm.newData.setColumnLabel(2, vm.strings.chart.recovered);
-      vm.newData.setColumnLabel(3, vm.strings.chart.deaths);
+    if (vm.totalDataTable && vm.totalDataTable.setColumnLabel) {
+      vm.totalDataTable.setColumnLabel(1, vm.strings.chart.confirmed);
+      vm.totalDataTable.setColumnLabel(2, vm.strings.chart.recovered);
+      vm.totalDataTable.setColumnLabel(3, vm.strings.chart.deaths);
+      vm.deltaDataTable.setColumnLabel(1, vm.strings.chart.confirmed);
+      vm.deltaDataTable.setColumnLabel(2, vm.strings.chart.recovered);
+      vm.deltaDataTable.setColumnLabel(3, vm.strings.chart.deaths);
     }
 
     var urlCode = vm.getIsoCodeFromUrl();
