@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-app-bar app color="amber">
-      <div class="d-flex align-center">
+      <div class="align-center">
         <v-img
           alt="Vuetify Logo"
           class="shrink mr-2 hidden-md-and-up"
@@ -23,26 +23,39 @@
 
       <v-toolbar-title>COVID-19</v-toolbar-title>
       <v-spacer></v-spacer>
-
-      <!-- <v-btn href="https://github.com/sdudnic/covid19" target="_blank" text>
-        <span class="mr-2">Petition</span>
-        <v-icon>mdi-open-in-new</v-icon>
-      </v-btn>-->
+      {{countryName}}
     </v-app-bar>
 
     <v-content>
-      <Graphs :strings="strings" :language="language" :colors="colors" />
+      <Graphs
+        :strings="strings"
+        :language="language"
+        :colors="colors"
+        @countryChanged="countryChanged($event)"
+      />
     </v-content>
     <v-footer absolute app>
-      <v-card-text class="text-right">
-        {{ new Date().getFullYear() }}
-        <a
-          href="https://github.com/sdudnic/covid-19"
-          target="blank"
-        >covid-19</a> project by
-        <a href="https://github.com/sdudnic" target="blank">sdudnic</a> & co
-        <v-spacer></v-spacer>
-      </v-card-text>
+      <v-row align="center" justify="space-between">
+        <v-card color="transparent" outlined class="mx-2 my-0 px-2 py-0">
+          <small>
+            {{strings.petition.moldovan}} -
+            <strong>
+              <a :href="strings.petition.link" target="blank">{{strings.petition.title}}</a>
+            </strong>
+          </small>
+        </v-card>
+        <v-card color="transparent" outlined class="mx-2 my-0 px-2 py-0">
+          <small>
+            {{ new Date().getFullYear() }}
+            <a
+              href="https://github.com/sdudnic/covid-19"
+              target="blank"
+            >covid-19</a> project by
+            <a href="https://github.com/sdudnic" target="blank">sdudnic</a>
+            & co
+          </small>
+        </v-card>
+      </v-row>
     </v-footer>
   </v-app>
 </template>
@@ -65,7 +78,8 @@ export default {
       confirmed: "orange",
       recovered: "green",
       deaths: "red"
-    }
+    },
+    countryName: ""
   }),
   beforeMount() {
     // get translations
@@ -79,6 +93,15 @@ export default {
       return fetch("./data/strings.json")
         .then(s => s.json())
         .then(st => (vm.strings = st[vm.language]));
+    },
+    changeTitle: function(countryName) {
+      const myRegex = /(^.*)(COVID-19 evolution graphs,)/;
+      const replacement = countryName + " $2";
+      document.title = document.title.replace(myRegex, replacement);
+    },
+    countryChanged(countryName) {
+      this.countryName = countryName;
+      this.changeTitle(countryName);
     }
   }
 };

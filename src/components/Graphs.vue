@@ -12,7 +12,7 @@
             item-text="name"
             item-value="iso3"
             hide-details
-            class="par-5"
+            class=""
           ></v-autocomplete>
           <v-text-field
             :label="strings.chart.daysBack"
@@ -20,11 +20,12 @@
             dense
             style="max-width: 45px"
             type="number"
+            maxlength="3"
             hide-details
-            class="pal-5"
+            class="ml-4"
           ></v-text-field>
         </v-row>
-        <v-row class="ma-0 pa-0" align="center" justify="center">
+        <v-row class="ma-2 pa-0" align="center" justify="center">
           <small>
             {{strings.lastData}}
             <span
@@ -51,24 +52,26 @@
       </v-col>
     </v-row>
 
-    <v-row class="text-center">
-      <v-col cols="12">
+    <v-row justify="center">
+      <v-card class="ma-2">
         <GChart
+          id="deltaDataChart"
           type="LineChart"
           :settings="{ 'packages':['corechart'], language: language}"
           :data="newData"
           :options="newChartOptions"
         />
-      </v-col>
-      <v-col cols="12">
+      </v-card>
+      <v-card class="ma-2">
         <GChart
+          id="totalDataChart"
           type="LineChart"
           :settings="{ 'packages':['corechart'], language: language}"
           :data="totalData"
           :options="totalChartOptions"
           @ready="onChartReady"
         />
-      </v-col>
+      </v-card>
     </v-row>
   </v-container>
 </template>
@@ -105,29 +108,32 @@ export default {
       },
       totalChartOptions: {
         title: "Total cases",
+        titleTextStyle: {
+          color: "#ffffff80",
+          fontName: "Roboto",
+          fontSize: 12,
+          bold: false,
+          italic: true,
+          opacity: 0.5
+        },
+        titlePosition: "out",
+        axisTitlesPosition: "in",
+        fontName: "Roboto",
         curveType: "function",
         legend: {
           position: "none"
         },
-        // set annotation for -- No Data Copy
-        annotations: {
-          // remove annotation stem and push to middle of chart
-          stem: {
-            color: "transparent",
-            length: 120
-          },
-          textStyle: {
-            color: "red",
-            fontSize: 22
-          }
-        },
-        explorer: {},
+        chartArea: { left: 40, top: 30, width: "100%", height: "75%" },
+        height: 500,
+        series: {},
         hAxis: {
-          title: '',
-          viewWindowMode: 'maximized'
+          title: "",
+          viewWindowMode: "maximized",
+          format: "dd/MM"
         },
         vAxis: {
-          viewWindow: { min: 0 }
+          viewWindow: { min: 0 },
+          format: "short"
         },
         colors: Object.values(this.colors),
         pointSize: 5,
