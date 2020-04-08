@@ -1,6 +1,6 @@
 <template>
   <v-app>
-    <v-app-bar app color="amber">
+    <v-app-bar app color="amber" justify="start">
       <div class="align-center">
         <v-img
           alt="Vuetify Logo"
@@ -21,9 +21,9 @@
         />
       </div>
 
-      <v-toolbar-title>COVID-19</v-toolbar-title>
-      <v-spacer></v-spacer>
-      {{countryName}}
+      <v-toolbar-title class="ml-5">covid-19 &gt;</v-toolbar-title>
+      <v-toolbar-title class="ml-1">{{countryName}}</v-toolbar-title>      
+      
     </v-app-bar>
 
     <v-content>

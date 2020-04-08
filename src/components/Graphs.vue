@@ -12,11 +12,12 @@
             item-text="name"
             item-value="iso3"
             hide-details
-            class=""
+            class
           ></v-autocomplete>
           <v-text-field
             :label="strings.chart.daysBack"
-            :value="daysNumber"
+            v-model="daysNumber"
+            disabled
             dense
             style="max-width: 45px"
             type="number"
@@ -31,8 +32,8 @@
             <span
               id="lastApiUpdate"
               class="font-weight-bold"
-            >{{cases.updateDate | isoDateTime}}</span>
-            (+{{strings.today}})
+            >{{lastUpdateTime}}</span>
+            (vs {{previousUpdateTime}})
           </small>
         </v-row>
         <v-row align="center" justify="center">
@@ -54,16 +55,17 @@
     </v-row>
 
     <v-row justify="center">
-      <v-card class="ma-2">
+      <v-card class="ma-2 pa-2">
         <GChart
           id="deltaDataChart"
           type="LineChart"
           :settings="{ 'packages':['corechart'], language: language}"
           :data="deltaDataTable"
           :options="deltaChartOptions"
+          @ready="onChartReady"
         />
       </v-card>
-      <v-card class="ma-2">
+      <v-card class="ma-2 pa-2">
         <GChart
           id="totalDataChart"
           type="LineChart"
@@ -93,7 +95,7 @@ export default {
   data() {
     return {
       ready: { totalChart: false, deltaChart: false },
-      daysNumber: 3,
+      daysNumber: 5,
       countryCode: "",
       cases: {
         total: {
@@ -111,37 +113,36 @@ export default {
       totalChartOptions: {
         title: "Total cases",
         titleTextStyle: {
-          color: "#ffffff80",
+          color: "black",
           fontName: "Roboto",
-          fontSize: 12,
+          fontSize: 14,
           bold: false,
           italic: true,
           opacity: 0.5
         },
-        titlePosition: "out",
-        axisTitlesPosition: "in",
+        //titlePosition: "out",
+        //axisTitlesPosition: "in",
         fontName: "Roboto",
         curveType: "function",
-        legend: {
-          position: "none"
-        },
-        chartArea: { left: 40, top: 30, width: "100%", height: "75%" },
+        legend: { position: "none" },
+        //chartArea: { left: 0, top: 0, width: "100%+40px", height: "calc(100%-5)" },
         height: 500,
-        series: {},
         hAxis: {
           title: "",
           viewWindowMode: "maximized",
           format: "dd/MM"
+          //viewWindow: { max: "2020-04-09" }
+          //maxValue: new Date(2020, 4, 9)
         },
-        vAxis: {
-          viewWindow: { min: 0 },
-          format: "short"
-        },
+        vAxis: { viewWindow: { min: 0 }, format: "short", titlePosition: "in" },
         colors: Object.values(this.colors),
-        pointSize: 5,
-        pointShape: "diamond"
+        pointSize: 10,
+        pointShape: "diamond",
+        theme: "maximized"
       },
       deltaChartOptions: {},
+      current: {},
+      previous: {},
       totalDataTable: {},
       deltaDataTable: {},
       countries: [],
@@ -149,17 +150,21 @@ export default {
         timeline: "https://covidapi.info/api/v1/country/***",
         current:
           "https://services1.arcgis.com/0MSEUqKaxRlEPj5g/arcgis/rest/services/Coronavirus_2019_nCoV_Cases/FeatureServer/2/query?where=UPPER(Country_Region)%20like%20%27%25***%25%27&outFields=Last_Update,Confirmed,Deaths,Recovered,Country_Region&returnGeometry=false&outSR=4326&f=json"
-      },
-      startDateString: ""
+      }
     };
   },
   methods: {
+    chartsReady() {
+      return this.ready.totalChart && this.ready.deltaChart;
+    },
+
     getCountries() {
       var vm = this;
       return fetch("./data/countries.json")
         .then(s => s.json())
         .then(c => (vm.countries = c));
     },
+
     getApiUrl(countryCode, countryName, isTimeline) {
       if (!countryCode) {
         return null;
@@ -179,124 +184,136 @@ export default {
       }
       return url;
     },
+
     filterFromStartDate(e) {
       return e[0] >= this.startDateString;
     },
-    updateFields(current) {
-      this.cases.updateDate = current.date;
-      this.cases.total.confirmed = current.confirmed;
-      this.cases.total.recovered = current.recovered;
-      this.cases.total.deaths = current.deaths;
+    updateFields(total, delta) {
+      if (!total && !delta) {
+        this.cases.updateDate = new Date(2000, 1, 1);
+
+        this.cases.total.confirmed = 0;
+        this.cases.total.recovered = 0;
+        this.cases.total.deaths = 0;
+
+        this.cases.delta.confirmed = 0;
+        this.cases.delta.recovered = 0;
+        this.cases.delta.deaths = 0;
+      } else {
+        this.cases.updateDate = (total || delta).date;
+        if (total) {
+          this.cases.total.confirmed = total.confirmed;
+          this.cases.total.recovered = total.recovered;
+          this.cases.total.deaths = total.deaths;
+        }
+        if (delta) {
+          this.cases.delta.confirmed = delta.confirmed;
+          this.cases.delta.recovered = delta.recovered;
+          this.cases.delta.deaths = delta.deaths;
+        }
+      }
     },
+
+    addColumns(dt) {
+      var vm = this;
+      dt.addColumn("date", "Date");
+      dt.addColumn("number", vm.strings.chart.confirmed);
+      dt.addColumn("number", vm.strings.chart.recovered);
+      dt.addColumn("number", vm.strings.chart.deaths);
+      dt.addColumn({
+        role: "annotation",
+        type: "string"
+      });
+    },
+
     onChartReady(chart, google) {
       var vm = this;
-      vm.totalDataTable = new google.visualization.DataTable();
-      vm.deltaDataTable = new google.visualization.DataTable();
-
-      vm.totalDataTable.addColumn("date", "Date");
-      vm.totalDataTable.addColumn("number", vm.strings.chart.confirmed);
-      vm.totalDataTable.addColumn("number", vm.strings.chart.recovered);
-      vm.totalDataTable.addColumn("number", vm.strings.chart.deaths);
-      vm.totalDataTable.addColumn({
-        role: "annotation",
-        type: "string"
-      });
-
-      vm.deltaDataTable.addColumn("date", "Date");
-      vm.deltaDataTable.addColumn("number", vm.strings.chart.confirmed);
-      vm.deltaDataTable.addColumn("number", vm.strings.chart.recovered);
-      vm.deltaDataTable.addColumn("number", vm.strings.chart.deaths);
-      vm.deltaDataTable.addColumn({
-        role: "annotation",
-        type: "string"
-      });
-
+      var id = chart.container.id;
       var formatter = new google.visualization.DateFormat({
         pattern: "dd/MM/yy hh:mm"
       });
-      formatter.format(vm.totalDataTable, 0);
-      formatter.format(vm.deltaDataTable, 0);
 
-      vm.deltaChartOptions = JSON.parse(JSON.stringify(vm.totalChartOptions)); // clone
-      vm.loadData(vm.countryCode, vm.countryName);
+      if (id == "deltaDataChart") {
+        vm.deltaDataTable = new google.visualization.DataTable();
+        vm.addColumns(vm.deltaDataTable);
+        formatter.format(vm.deltaDataTable, 0);
+        vm.ready.deltaChart = true;
+      } else if (id == "totalDataChart") {
+        vm.totalDataTable = new google.visualization.DataTable();
+        vm.addColumns(vm.totalDataTable);
+        formatter.format(vm.totalDataTable, 0);
+        vm.ready.totalChart = true;
+      }
     },
+
+    tryReloadData() {
+      var vm = this;
+      if (vm.readyToLoadData) {
+        vm.loadData();
+        return true;
+      } else {
+        return false;
+      }
+    },
+
     cleanTable(dataTable) {
       if (dataTable.getNumberOfRows) {
         var rowsNr = dataTable.getNumberOfRows();
         if (rowsNr) dataTable.removeRows(0, rowsNr);
       }
     },
-    addNewDataRow(current, previous, ignored) {
-      var vm = this;
-      vm.cases.updateDate = current.date;
 
-      vm.cases.total.confirmed = current.confirmed;
-      vm.cases.delta.confirmed = current.confirmed - previous.confirmed;
-      previous.confirmed = current.confirmed;
-
-      vm.cases.total.recovered = current.recovered;
-      vm.cases.delta.recovered = current.recovered - previous.recovered;
-      previous.recovered = current.recovered;
-
-      vm.cases.total.deaths = current.deaths;
-      vm.cases.delta.deaths = current.deaths - previous.deaths;
-      previous.deaths = current.deaths;
-
-      if (!ignored) {
-        vm.totalDataTable.addRow([
-          current.date,
-          current.confirmed,
-          current.recovered,
-          current.deaths,
-          null
-        ]);
-        vm.deltaDataTable.addRow([
-          current.date,
-          vm.cases.delta.confirmed,
-          vm.cases.delta.recovered,
-          vm.cases.delta.deaths,
-          null
-        ]);
+    tableAddRow(table, row) {
+      if (!row) {
+        row = { date: null, confirmed: 0, recovered: 0, deaths: 0 };
       }
+      table.addRow([row.date, row.confirmed, row.recovered, row.deaths, null]);
     },
-    loadData(countryCode, countryName) {
-      var vm = this;
-      countryCode = countryCode || vm.countryCode;
-      countryName = countryName || vm.countryName;
 
-      var now = new Date();
-      var utcNow = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-      );
-      var startDate = utcNow.addDays(-vm.daysNumber - 1);
-      vm.startDateString = startDate.toISOString().slice(0, 10);
+    addDataEntry(current, previous, ignoreChartPoint) {
+      var vm = this;
+      var totalData = current;
+      var deltaData = {
+        date: totalData.date,
+        confirmed: current.confirmed - previous.confirmed,
+        recovered: current.recovered - previous.recovered,
+        deaths: current.deaths - previous.deaths
+      };
+
+      if (!ignoreChartPoint) {
+        vm.tableAddRow(vm.totalDataTable, totalData);
+        vm.tableAddRow(vm.deltaDataTable, deltaData);
+      }
+
+      return deltaData;
+    },
+
+    loadData() {
+      var vm = this;
 
       if (vm.totalDataTable.addRow) {
-        vm.totalDataTable.addRow([null, 0, 0, 0, null]);
-        vm.deltaDataTable.addRow([null, 0, 0, 0, null]);
+        vm.tableAddRow(vm.totalDataTable, null);
+        vm.tableAddRow(vm.deltaDataTable, null);
 
         vm.cleanTable(vm.totalDataTable);
         vm.cleanTable(vm.deltaDataTable);
       }
 
-      var timelineApi = vm.getApiUrl(countryCode, countryName, true);
-      var currentApi = vm.getApiUrl(countryCode, countryName, false);
-
-      var previous = {
+      vm.previous = {
         date: {},
         confirmed: 0,
         recovered: 0,
         deaths: 0
       };
 
-      var current = {
+      vm.current = {
         date: {},
         confirmed: 0,
         recovered: 0,
         deaths: 0
       };
 
-      fetch(timelineApi)
+      fetch(vm.timelineApi)
         .then(a => a.json())
         .then(apiAnswer => {
           var results = Object.entries(apiAnswer.result).filter(
@@ -305,55 +322,61 @@ export default {
 
           if (results.length === 0) {
             // no data
-            vm.totalDataTable.addRow([null, 0, 0, 0, "NO DATA"]);
-            vm.deltaDataTable.addRow([null, 0, 0, 0, "NO DATA"]);
+            vm.tableAddRow(vm.totalDataTable, null);
+            vm.tableAddRow(vm.deltaDataTable, null);
             vm.updateFields();
           } else {
             // we have data
             for (let i = 0; i < results.length; i++) {
+              // take first one day before, for 'new' count
+              var ignoreChartPoint = i == 0;
               const item = results[i][1];
               var myDate = new Date(results[i][0]);
-              current = {
+
+              vm.current = {
                 date: myDate,
                 confirmed: item.confirmed,
                 recovered: item.recovered,
                 deaths: item.deaths
               };
-              var ignoreAdding = i == 0;
-              vm.addNewDataRow(current, previous, ignoreAdding);
+
+              vm.addDataEntry(vm.current, vm.previous, ignoreChartPoint);
+
+              vm.previous = vm.current;
             }
           }
         })
         .then(() => {
-          fetch(currentApi)
+          fetch(vm.currentApi)
             .then(d => d.json())
             .then(data => {
               var item = data.features[0].attributes;
               var myDate = new Date(item.Last_Update);
-              current = {
+              vm.current = {
                 date: myDate,
                 confirmed: item.Confirmed,
                 recovered: item.Recovered,
                 deaths: item.Deaths
               };
 
-              vm.addNewDataRow(current, previous);
-              vm.updateFields(current);
+              var delta = vm.addDataEntry(vm.current, vm.previous);
+              vm.updateFields(vm.current, delta);
 
               vm.totalChartOptions.title =
-                vm.strings.chart.totalTitle + countryName;
+                vm.strings.chart.totalTitle + vm.countryName;
               vm.deltaChartOptions.title =
-                vm.strings.chart.newTitle + countryName;
+                vm.strings.chart.newTitle + vm.countryName;
             });
         })
         .catch(() => {
           if (vm.totalDataTable.addRow) {
-            vm.totalDataTable.addRow([null, 0, 0, 0, "NO DATA"]);
-            vm.deltaDataTable.addRow([null, 0, 0, 0, "NO DATA"]);
+            vm.tableAddRow(vm.totalDataTable, null);
+            vm.tableAddRow(vm.deltaDataTable, null);
             vm.updateFields();
           }
         });
     },
+
     getIsoCodeFromUrl() {
       var vm = this;
       var stringUrl = window.location.href;
@@ -378,11 +401,7 @@ export default {
         return null;
       }
     },
-    changeTitle: function(countryName) {
-      const myRegex = /(^.*)(COVID-19 evolution graphs,)/;
-      const replacement = countryName + " $2";
-      document.title = document.title.replace(myRegex, replacement);
-    },
+
     getIso3CodeFromIp: async function() {
       try {
         var jsonUrl = {
@@ -409,22 +428,13 @@ export default {
         return null;
       }
     },
-    countryCodeChanged(newCode) {
-      var name = this.countryName;
-      this.loadData(newCode, name);
-      this.changeTitle(name);
+
+    countryCodeChanged() {
+      var vm = this;
+      vm.$emit("countryChanged", vm.countryName);
     }
   },
-  filters: {
-    isoDateTime: function(value) {
-      var dateText = "-";
-      if (value && value instanceof Date) {
-        dateText =
-          value.toISOString().slice(0, 10) + " " + value.toLocaleTimeString();
-      }
-      return dateText;
-    }
-  },
+  filters: {},
   computed: {
     countryName() {
       var iso3 = this.countryCode;
@@ -440,31 +450,59 @@ export default {
       } else {
         return "";
       }
+    },
+    timelineApi() {
+      return this.getApiUrl(this.countryCode, this.countryName, true);
+    },
+    currentApi() {
+      return this.getApiUrl(this.countryCode, this.countryName, false);
+    },
+    readyToLoadData() {
+      return (
+        this.ready.deltaChart &&
+        this.ready.totalChart &&
+        this.countryCode &&
+        this.daysNumber
+      );
+    },
+    startDateString() {
+      var now = new Date();
+      var utcNow = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+      );
+      var startDate = utcNow.addDays(-this.daysNumber - 1);
+      return startDate.toISOString().slice(0, 10);
+    },
+    lastUpdateTime() {
+      if (!this.cases.updateDate) {
+        return "";
+      }
+      return this.cases.updateDate.toLocaleString();
+    },
+    previousUpdateTime() {
+      if (!this.previous.date) {
+        return "";
+      }
+      return this.previous.date.toLocaleString();
     }
   },
   watch: {
-    countryCode: "countryCodeChanged",
-    daysNumber: "loadData"
+    countryCode: ["countryCodeChanged"],
+    //daysNumber: "loadData"
+    readyToLoadData: { handler: "tryReloadData", deep: true }
   },
   beforeMount() {
+    var vm = this;
     Date.prototype.addDays = function(days) {
       var date = new Date(this.valueOf());
       date.setDate(date.getDate() + days);
       return date;
     };
-    this.getCountries();
+    vm.getCountries();
+    vm.deltaChartOptions = JSON.parse(JSON.stringify(vm.totalChartOptions)); // clone
   },
   mounted: function() {
     var vm = this;
-
-    if (vm.totalDataTable && vm.totalDataTable.setColumnLabel) {
-      vm.totalDataTable.setColumnLabel(1, vm.strings.chart.confirmed);
-      vm.totalDataTable.setColumnLabel(2, vm.strings.chart.recovered);
-      vm.totalDataTable.setColumnLabel(3, vm.strings.chart.deaths);
-      vm.deltaDataTable.setColumnLabel(1, vm.strings.chart.confirmed);
-      vm.deltaDataTable.setColumnLabel(2, vm.strings.chart.recovered);
-      vm.deltaDataTable.setColumnLabel(3, vm.strings.chart.deaths);
-    }
 
     var urlCode = vm.getIsoCodeFromUrl();
     if (urlCode) {
