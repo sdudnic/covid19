@@ -8436,3 +8436,12 @@ yorkie@^2.0.0:
     
 normalize-url@^4.5.1:
   version "4.5.1"
+
+ws@^6.2.2:
+  version "6.2.2"
+  
+glob-parent@^5.1.2:
+  version "5.1.2"  
+  
+yargs-parser@^13.1.2:
+  version "13.1.2"  
